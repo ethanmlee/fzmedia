@@ -157,6 +157,16 @@ plbuild() {
             ;;
         esac
       done
+
+  # remove everything before the chosen file
+  if case "$1" in http://*|https://*) true;; *) false;; esac; then
+    pattern=$(printf '%s' "$FILE" | url_encode)
+  else
+    pattern="$FILE"
+  fi
+  sed "0,/$pattern/{//!d;}" "$M3U_FILE" > "$M3U_FILE.tmp" \
+    && mv "$M3U_FILE.tmp" "$M3U_FILE"
+
 }
 
 # Prompt via fuzzy finder whether to add to the add to continue watching cache dir
