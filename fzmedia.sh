@@ -137,7 +137,7 @@ poll_m3u_files() {
     while IFS= read -r i; do
       printf "" > "$CACHE_DIR/$parent"
       for entry in $(list_entries "$i/"); do
-        printf "#EXTM3U\n" >> "$CACHE_DIR/$parent"
+        printf '#EXTINF:-1,\n' >> "$CACHE_DIR/$parent"
         printf '%s\n' "$i/$entry" >> "$CACHE_DIR/$parent"
       done
     done
@@ -314,9 +314,10 @@ main() {
   # If MEDIA_ROOT is still empty after sourcing/applying defaults, error out
   [ -z "$MEDIA_ROOT" ] && printf "Error: MEDIA_ROOT must be set.\n" >&2 && return 1
 
-  # Start navigation/playback
-  #navigate_and_play "${MEDIA_ROOT%/}/"
   poll_m3u_files
+
+  # Start navigation/playback
+  navigate_and_play "${MEDIA_ROOT%/}/"
 
 }
 
