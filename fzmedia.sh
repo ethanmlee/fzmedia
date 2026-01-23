@@ -130,6 +130,20 @@ list_entries() {
   esac
 }
 
+poll_m3u_files() {
+  for f in "$CACHE_DIR"/*; do
+    parent=$(basename "$f")
+    sed '/^#EXTINF/d; s#/[^/]*$##' "$f" | sort -u |
+    while IFS= read -r i; do
+      printf "" > "$CACHE_DIR/$parent"
+      for entry in $(list_entries "$i/"); do
+        printf "#EXTM3U\n" >> "$CACHE_DIR/$parent"
+        printf '%s\n' "$i/$entry" >> "$CACHE_DIR/$parent"
+      done
+    done
+  done
+}
+
 # List and fuzzy‐select directory entries under a given URL
 indexfzy() {
   list_entries "$1" | $FUZZY_FINDER
@@ -301,7 +315,8 @@ main() {
   [ -z "$MEDIA_ROOT" ] && printf "Error: MEDIA_ROOT must be set.\n" >&2 && return 1
 
   # Start navigation/playback
-  navigate_and_play "${MEDIA_ROOT%/}/"
+  #navigate_and_play "${MEDIA_ROOT%/}/"
+  poll_m3u_files
 
 }
 
