@@ -65,7 +65,7 @@ Usage: fzmedia [-s MEDIA_ROOT] [-p VIDEO_PLAYER] [-f FUZZY_FINDER] [-m M3U_FILE]
   -f  fuzzy-finder command   (overrides FUZZY_FINDER)
   -m  path to m3u file       (overrides M3U_FILE)
   -c  path to cache dir      (overrides CACHE_DIR)
-  -u  poll the continue watching playlists and exit
+  -u  poll the continue watching playlists, print to the terminal, then exit
   -d  download the video instead of play
   -t  download tool          (overrides DOWNLOAD_TOOL)
   -h  this help

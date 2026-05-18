@@ -22,7 +22,7 @@ Usage: $(basename "$0") [-s MEDIA_ROOT] [-p VIDEO_PLAYER] [-f FUZZY_FINDER] [-m 
   -f  fuzzy-finder command   (overrides FUZZY_FINDER)
   -m  path to m3u file       (overrides M3U_FILE)
   -c  path to cache dir      (overrides CACHE_DIR)
-  -u  poll the continue watching playlists and exit
+  -u  poll the continue watching playlists, print to the terminal, then exit
   -d  download the video instead of play
   -t  download tool          (overrides DOWNLOAD_TOOL)
   -h  this help
@@ -144,7 +144,21 @@ list_entries() {
   esac
 }
 
+snapshot_m3u_files() {
+  pre=$(mktemp)
+  grep -h -v '^#' "$CACHE_DIR"/*.m3u | sed 's#^.*/##' | sort -u > "$pre"
+  trap 'rm -f "$pre" "$post"' EXIT
+}
+
+diff_m3u_files() {
+  post=$(mktemp)
+  grep -h -v '^#' "$CACHE_DIR"/*.m3u | sed 's#^.*/##' | sort -u > "$post"
+  comm -13 "$pre" "$post"
+  rm -f "$pre" "$post"
+}
+
 poll_m3u_files() {
+  [ -n "$POLL_AND_EXIT" ] && snapshot_m3u_files
   ls "$CACHE_DIR"/*.m3u > /dev/null 2>&1 || return
   for f in "$CACHE_DIR"/*.m3u; do
     parent=$(basename "$f")
@@ -158,6 +172,7 @@ poll_m3u_files() {
       done
     done
   done
+  [ -n "$POLL_AND_EXIT" ] && diff_m3u_files
 }
 
 # supported media extensions
@@ -166,7 +181,7 @@ MEDIA_REGEX='\.(mkv|mp4|avi|webm|flv|mov|wmv|m4v|mp3|flac|wav|aac|ogg|m4a|gif)$'
 # Build an M3U playlist from a URL/directory, starting from first selected file
 plbuild() {
   start=$2
-  printf '#M3UEXT\n' > "$M3U_FILE"
+  printf "#EXTM3U\n" > "$M3U_FILE"
   case "$1" in
     http://* | https://*) base="$1" ;;
     *) base=$(cd "${1%/}" 2> /dev/null && pwd)/ || return ;;
@@ -288,7 +303,7 @@ main() {
   [ "$(id -u)" -eq 0 ] && printf "Do not run this script as root. Aborting.\n" && exit 1
   conf
   poll_m3u_files
-  [ -n "$POLL_AND_EXIT" ] && printf "updated continue watching playlists\n" && exit 0
+  [ -n "$POLL_AND_EXIT" ] && exit 0
   navigate_and_play
 }
 
