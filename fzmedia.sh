@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Parse CLI flags (override config)
-while getopts "s:p:r:f:m:c:hdt:" opt; do
+while getopts "s:p:r:f:m:c:t:hdu" opt; do
   case "$opt" in
     s) FLAG_MEDIA_ROOT=$OPTARG ;;
     p) FLAG_VIDEO_PLAYER=$OPTARG ;;
@@ -9,6 +9,7 @@ while getopts "s:p:r:f:m:c:hdt:" opt; do
     f) FLAG_FUZZY_FINDER=$OPTARG ;;
     m) FLAG_M3U_FILE=$OPTARG ;;
     c) FLAG_CACHE_DIR=$OPTARG ;;
+    u) POLL_AND_EXIT="true" ;;
     d) DOWNLOAD_MEDIA="true" ;;
     t) DOWNLOAD_TOOL=$OPTARG ;;
     h)
@@ -21,6 +22,7 @@ Usage: $(basename "$0") [-s MEDIA_ROOT] [-p VIDEO_PLAYER] [-f FUZZY_FINDER] [-m 
   -f  fuzzy-finder command   (overrides FUZZY_FINDER)
   -m  path to m3u file       (overrides M3U_FILE)
   -c  path to cache dir      (overrides CACHE_DIR)
+  -u  poll the continue watching playlists and exit
   -d  download the video instead of play
   -t  download tool          (overrides DOWNLOAD_TOOL)
   -h  this help
@@ -286,6 +288,7 @@ main() {
   [ "$(id -u)" -eq 0 ] && printf "Do not run this script as root. Aborting.\n" && exit 1
   conf
   poll_m3u_files
+  [ -n "$POLL_AND_EXIT" ] && printf "updated continue watching playlists\n" && exit 0
   navigate_and_play
 }
 
