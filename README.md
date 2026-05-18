@@ -92,7 +92,6 @@ when navigating directory trees you can search by name, go back up with cancel (
 open an issue or PR if you find a bug or want to contribute. all contributions welcome.
 
 # TODO
-- continue watching update on open and only update continue watching and do not open flag.
 - ssh as a media root source
 - selfhosted apt repository for debian and ubuntu
 - maybe a config file option and flag to specify whether you are using a menu or plain fuzzy finder. this could really level up the "UI" capabilities, such as renaming Continue watching m3u files or cleaner prompts, though I don't want to break compat with plain fuzzy finders
