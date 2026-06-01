@@ -29,7 +29,7 @@ jobs:
       - name: render and push if changed
         run: |
 
-          jinja2 .github/ebuild/fzmedia.ebuild.j2 -D version=9999 > overlay/media-video/fzmedia/fzmedia-9999.ebuild
+          jinja2 .github/packaging/fzmedia.ebuild.j2 -D version=9999 > overlay/media-video/fzmedia/fzmedia-9999.ebuild
 
           cd overlay
           git config user.name "github-actions[bot]"

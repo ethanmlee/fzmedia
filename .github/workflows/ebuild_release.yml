@@ -30,7 +30,7 @@ jobs:
 
           VERSION="$(echo '${{ github.event.inputs.tag || github.ref_name }}' | sed 's/^v//')"
 
-          jinja2 .github/ebuild/fzmedia.ebuild.j2 -D version=$VERSION > overlay/media-video/fzmedia/fzmedia-${VERSION}.ebuild
+          jinja2 .github/packaging/fzmedia.ebuild.j2 -D version=$VERSION > overlay/media-video/fzmedia/fzmedia-${VERSION}.ebuild
 
           f=/tmp/fzmedia-${VERSION}.tar.gz
           curl -fsSL "https://github.com/dirtytowel/fzmedia/archive/refs/tags/v${VERSION}.tar.gz" -o $f
