@@ -1,51 +1,71 @@
 #!/bin/sh
 
-# Parse CLI flags (override config)
-while getopts "s:p:r:f:m:c:t:hdu" opt; do
-  case "$opt" in
-    s) FLAG_MEDIA_ROOT=$OPTARG ;;
-    p) FLAG_VIDEO_PLAYER=$OPTARG ;;
-    r) FLAG_RESUME_PLAYER=$OPTARG ;;
-    f) FLAG_FUZZY_FINDER=$OPTARG ;;
-    m) FLAG_M3U_FILE=$OPTARG ;;
-    c) FLAG_CACHE_DIR=$OPTARG ;;
-    u) POLL_AND_EXIT="true" ;;
-    d) DOWNLOAD_MEDIA="true" ;;
-    t) DOWNLOAD_TOOL=$OPTARG ;;
-    h)
-      cat << EOF
-Usage: $(basename "$0") [-s MEDIA_ROOT] [-p VIDEO_PLAYER] [-f FUZZY_FINDER] [-m M3U_FILE]
-
-  -s  media root path        (directory or HTTP index, overrides MEDIA_ROOT)
-  -p  video player command   (overrides VIDEO_PLAYER)
-  -r  resume player command  (overrides RESUME_PLAYER)
-  -f  fuzzy-finder command   (overrides FUZZY_FINDER)
-  -m  path to m3u file       (overrides M3U_FILE)
-  -c  path to cache dir      (overrides CACHE_DIR)
-  -u  poll the continue watching playlists, print to the terminal, then exit
-  -d  download the video instead of play
-  -t  download tool          (overrides DOWNLOAD_TOOL)
-  -h  this help
+# Table of config variables: flag|name|default|help|config_comment
+# only here to keep things DRY
+config_spec() {
+  cat << 'EOF'
+s|MEDIA_ROOT||media root path|/path/to/file or http://example.com
+p|VIDEO_PLAYER|mpv --save-position-on-quit --no-resume-playback|video player command|default
+r|RESUME_PLAYER|mpv --save-position-on-quit|resume player command|default
+f|FUZZY_FINDER|fzy|fuzzy-finder command|default
+m|M3U_FILE|/tmp/fzmedia.m3u|path to m3u file|default
+c|CACHE_DIR|$cache_home/fzmedia|path to cache dir|default
+u|||poll the continue watching playlists, print to the terminal, then exit||
+d|||download instead of play||
+t|DOWNLOAD_TOOL|wget -c -i|download tool|default
+|PREFERRED_ORDER|movies/,tv/,anime/,music/||default
+h|||display this help||
 EOF
-      exit 0
-      ;;
-    *) exit 1 ;;
-  esac
-done
-shift $((OPTIND - 1))
+}
 
-# Load configuration, apply defaults, and ensure MEDIA_ROOT is set
-conf() {
+# Parse CLI flags (override config)
+# unfortunately functionalizing these makes it incredibly dificult to read
+flags() {
+  while getopts "s:p:r:f:m:c:t:hdu" opt; do
+    case "$opt" in
+      s) FLAG_MEDIA_ROOT=$OPTARG ;;
+      p) FLAG_VIDEO_PLAYER=$OPTARG ;;
+      r) FLAG_RESUME_PLAYER=$OPTARG ;;
+      f) FLAG_FUZZY_FINDER=$OPTARG ;;
+      m) FLAG_M3U_FILE=$OPTARG ;;
+      c) FLAG_CACHE_DIR=$OPTARG ;;
+      u) POLL_AND_EXIT="true" ;;
+      d) DOWNLOAD_MEDIA="true" ;;
+      t) DOWNLOAD_TOOL=$OPTARG ;;
+      h) usage ;;
+      *) exit 1 ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+}
+
+usage() {
+  printf 'Usage: %s [-s MEDIA_ROOT] [-p VIDEO_PLAYER] [-f FUZZY_FINDER] [-m M3U_FILE]\n\n' "$(basename "$0")"
+  config_spec | while IFS='|' read -r flag var _ help _; do
+    if [ -n "$flag" ]; then
+      if [ -n "$var" ]; then 
+        printf '  -%s %s (overrides %s)\n' "$flag" "$help" "$var"
+      else
+        printf '  -%s %s\n' "$flag" "$help"
+      fi
+    fi
+  done
+  exit 0
+}
+
+source_conf() {
   [ -z "$XDG_CONFIG_HOME" ] && config_home="$HOME/.config" || config_home="$XDG_CONFIG_HOME"
   [ -z "$XDG_CACHE_HOME" ] && cache_home="$HOME/.cache" || cache_home="$XDG_CACHE_HOME"
   config_dir="$config_home/fzmedia"
   config_file="$config_dir/config"
-
-  # Ensure the config directory exists and create the file if it doesn't
   mkdir -p "$config_dir"
   touch "$config_file"
   # shellcheck disable=SC1090
   . "$config_file"
+}
+
+# Load configuration, apply defaults, and ensure MEDIA_ROOT is set
+conf() {
 
   # Define all VAR=default pairs once
   set -- \
@@ -301,10 +321,12 @@ navigate_and_play() {
 
 main() {
   [ "$(id -u)" -eq 0 ] && printf "Do not run this script as root. Aborting.\n" && exit 1
+  flags "$@"
+  source_conf
   conf
   poll_m3u_files
   [ -n "$POLL_AND_EXIT" ] && exit 0
   navigate_and_play
 }
 
-main
+main "$@"
