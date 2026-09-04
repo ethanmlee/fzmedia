@@ -30,7 +30,7 @@ flags() {
       c) FLAG_CACHE_DIR=$OPTARG ;;
       u) POLL_AND_EXIT="true" ;;
       d) DOWNLOAD_MEDIA="true" ;;
-      t) DOWNLOAD_TOOL=$OPTARG ;;
+      t) FLAG_DOWNLOAD_TOOL=$OPTARG ;;
       h) usage ;;
       *) exit 1 ;;
     esac
@@ -69,6 +69,7 @@ create_conf() {
 
   spec=$(mktemp)
   config_spec > "$spec"
+
   while IFS='|' read -r _ var default _ comment; do
     if [ -n "$var" ]; then
       eval "default=\"$default\""
@@ -81,15 +82,18 @@ create_conf() {
       fi
     fi
   done < "$spec"
-  rm -f "$spec"
 
   # Apply flag overrides
-  [ -n "$FLAG_MEDIA_ROOT" ] && MEDIA_ROOT=$FLAG_MEDIA_ROOT
-  [ -n "$FLAG_VIDEO_PLAYER" ] && VIDEO_PLAYER=$FLAG_VIDEO_PLAYER
-  [ -n "$FLAG_RESUME_PLAYER" ] && RESUME_PLAYER=$FLAG_RESUME_PLAYER
-  [ -n "$FLAG_FUZZY_FINDER" ] && FUZZY_FINDER=$FLAG_FUZZY_FINDER
-  [ -n "$FLAG_M3U_FILE" ] && M3U_FILE=$FLAG_M3U_FILE
-  [ -n "$FLAG_CACHE_DIR" ] && CACHE_DIR=$FLAG_CACHE_DIR
+  while IFS='|' read -r flag var _ _ _; do
+    if [ -n "$flag" ] && [ -n "$var" ]; then
+      eval "flag_val=\${FLAG_$var-}"
+      if [ -n "$flag_val" ]; then
+        eval "$var=\$flag_val"
+      fi
+    fi
+  done < "$spec"
+
+  rm -f "$spec"
 
   mkdir -p "$CACHE_DIR"
 
@@ -261,7 +265,6 @@ navigate_and_play() {
     fi
 
     [ -z "$choice" ] && exit
-
     case "$choice" in
       "continue watching/")
         current="$cache"
