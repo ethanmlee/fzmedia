@@ -42,7 +42,7 @@ usage() {
   printf 'Usage: %s [-s MEDIA_ROOT] [-p VIDEO_PLAYER] [-f FUZZY_FINDER] [-m M3U_FILE]\n\n' "$(basename "$0")"
   config_spec | while IFS='|' read -r flag var _ help _; do
     if [ -n "$flag" ]; then
-      if [ -n "$var" ]; then 
+      if [ -n "$var" ]; then
         printf '  -%s %s (overrides %s)\n' "$flag" "$help" "$var"
       else
         printf '  -%s %s\n' "$flag" "$help"
