@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# Table of config variables: flag|name|default|help|config_comment
-# only here to keep things DRY
+# Table of config variables: flag|var|default_command|help|config_comment
+# fucking hell I wish posix shell had arrays
 config_spec() {
   cat << 'EOF'
 s|MEDIA_ROOT||media root path|/path/to/file or http://example.com
@@ -19,7 +19,6 @@ EOF
 }
 
 # Parse CLI flags (override config)
-# unfortunately functionalizing these makes it incredibly dificult to read
 flags() {
   while getopts "s:p:r:f:m:c:t:hdu" opt; do
     case "$opt" in
@@ -55,7 +54,6 @@ usage() {
 
 source_conf() {
   [ -z "$XDG_CONFIG_HOME" ] && config_home="$HOME/.config" || config_home="$XDG_CONFIG_HOME"
-  [ -z "$XDG_CACHE_HOME" ] && cache_home="$HOME/.cache" || cache_home="$XDG_CACHE_HOME"
   config_dir="$config_home/fzmedia"
   config_file="$config_dir/config"
   mkdir -p "$config_dir"
@@ -65,43 +63,27 @@ source_conf() {
 }
 
 # Load configuration, apply defaults, and ensure MEDIA_ROOT is set
-conf() {
+create_conf() {
 
-  # Define all VAR=default pairs once
-  set -- \
-    "MEDIA_ROOT=" \
-    "VIDEO_PLAYER=mpv --save-position-on-quit --no-resume-playback" \
-    "RESUME_PLAYER=mpv --save-position-on-quit" \
-    "DOWNLOAD_TOOL=wget -c -i" \
-    "FUZZY_FINDER=fzy" \
-    "M3U_FILE=/tmp/fzmedia.m3u" \
-    "PREFERRED_ORDER=movies/,tv/,anime/,music/" \
-    "CACHE_DIR=$cache_home/fzmedia"
+  [ -z "$XDG_CACHE_HOME" ] && cache_home="$HOME/.cache" || cache_home="$XDG_CACHE_HOME"
 
-  # Apply defaults: for each “VAR=default”, do : "${VAR:=default}"
-  for each in "$@"; do eval ": \"\${${each%%=*}:=${each#*=}}\""; done
-
-  # Ensure the cache directory exists now that CACHE_DIR is set
-  mkdir -p "$CACHE_DIR"
-
-  # Append any missing VAR lines (commented or not) to the end of the config file
-  for each in "$@"; do
-    var=${each%%=*}
-    val=
-    eval "val=\$$var"
-    # only MEDIA_ROOT gets a custom trailing comment; everything else uses “#default”
-    if ! grep -q -E "^[[:space:]]*#?[[:space:]]*$var=" "$config_file"; then
-      if [ "$var" = "MEDIA_ROOT" ]; then
-        printf '#%s="%s" #/path/to/file or http://example.com\n' \
-          "$var" "$val" >> "$config_file"
-      else
-        printf '#%s="%s" #default\n' \
-          "$var" "$val" >> "$config_file"
+  spec=$(mktemp)
+  config_spec > "$spec"
+  while IFS='|' read -r _ var default _ comment; do
+    if [ -n "$var" ]; then
+      eval "default=\"$default\""
+      # Apply defaults: for each “VAR=default”, do : "${VAR:=default}"
+      eval ": \"\${$var:=\$default}\""
+      # Append any missing VAR lines (commented or not) to the end of the config file
+      if ! grep -q -E "^[[:space:]]*#?[[:space:]]*$var=" "$config_file"; then
+        eval "val=\$$var"
+        printf '#%s="%s" #%s\n' "$var" "$val" "${comment:-default}" >> "$config_file"
       fi
     fi
-  done
+  done < "$spec"
+  rm -f "$spec"
 
-  # Apply CLI overrides
+  # Apply flag overrides
   [ -n "$FLAG_MEDIA_ROOT" ] && MEDIA_ROOT=$FLAG_MEDIA_ROOT
   [ -n "$FLAG_VIDEO_PLAYER" ] && VIDEO_PLAYER=$FLAG_VIDEO_PLAYER
   [ -n "$FLAG_RESUME_PLAYER" ] && RESUME_PLAYER=$FLAG_RESUME_PLAYER
@@ -109,9 +91,9 @@ conf() {
   [ -n "$FLAG_M3U_FILE" ] && M3U_FILE=$FLAG_M3U_FILE
   [ -n "$FLAG_CACHE_DIR" ] && CACHE_DIR=$FLAG_CACHE_DIR
 
-  # If MEDIA_ROOT is still empty after sourcing/applying defaults, error out
-  [ -z "$MEDIA_ROOT" ] && printf "Error: MEDIA_ROOT must be set.\n" >&2 && exit 1
+  mkdir -p "$CACHE_DIR"
 
+  [ -z "$MEDIA_ROOT" ] && printf "Error: MEDIA_ROOT must be set in %s \n" "$config_file" >&2 && exit 1
 }
 
 # URL-encode stdin lines (safe='/')
@@ -192,7 +174,11 @@ poll_m3u_files() {
       done
     done
   done
-  [ -n "$POLL_AND_EXIT" ] && diff_m3u_files
+
+  if [ -n "$POLL_AND_EXIT" ]; then
+    diff_m3u_files
+    exit 0
+  fi
 }
 
 # supported media extensions
@@ -277,31 +263,25 @@ navigate_and_play() {
     [ -z "$choice" ] && exit
 
     case "$choice" in
-
       "continue watching/")
         current="$cache"
         ;;
-
       "rm")
         manage_cache
         # if CACHE_DIR is now empty of .m3u, reset to MEDIA_ROOT; otherwise stay in CACHE_DIR
         ls "$CACHE_DIR"/*.m3u > /dev/null 2>&1 && current="$cache" || current="$root"
         ;;
-
       ../)
         [ "$current" = "$cache" ] && current="$root" || current="${current%/*/}/"
         ;;
-
       */)
         current="${current}${choice}"
         ;;
-
       *)
         #if current choice is a .m3u then resume
         if printf '%s\n' "$choice" | grep -qiE '\.m3u$'; then
           play_or_download "$RESUME_PLAYER" "${current}${choice}"
           break
-
         #play and prompt to add to continue watching if is one of the supported media types
         elif printf '%s\n' "$choice" | grep -qiE "$MEDIA_REGEX"; then
           plbuild "$current" "$choice"
@@ -309,7 +289,6 @@ navigate_and_play() {
           cont_watch "$M3U_FILE" "$choice"
           rm -f "$M3U_FILE"
           break
-
         else
           printf 'skipping non-media: %s\n' "$choice" >&2
         fi
@@ -323,9 +302,8 @@ main() {
   [ "$(id -u)" -eq 0 ] && printf "Do not run this script as root. Aborting.\n" && exit 1
   flags "$@"
   source_conf
-  conf
+  create_conf
   poll_m3u_files
-  [ -n "$POLL_AND_EXIT" ] && exit 0
   navigate_and_play
 }
 
