@@ -20,19 +20,18 @@ EOF
 
 # Parse CLI flags (override config)
 flags() {
-  while getopts "s:p:r:f:m:c:t:hdu" opt; do
+  spec=$(config_spec)
+  optstring=$(printf '%s\n' "$spec" | while IFS='|' read -r flag var _; do
+    [ -n "$flag" ] && printf '%s%s' "$flag" "${var:+:}"
+  done)
+
+  while getopts "$optstring" opt; do
+    var=$(printf '%s\n' "$spec" | awk -F'|' -v f="$opt" '$1==f{print $2;exit}')
     case "$opt" in
-      s) FLAG_MEDIA_ROOT=$OPTARG ;;
-      p) FLAG_VIDEO_PLAYER=$OPTARG ;;
-      r) FLAG_RESUME_PLAYER=$OPTARG ;;
-      f) FLAG_FUZZY_FINDER=$OPTARG ;;
-      m) FLAG_M3U_FILE=$OPTARG ;;
-      c) FLAG_CACHE_DIR=$OPTARG ;;
-      u) POLL_AND_EXIT="true" ;;
-      d) DOWNLOAD_MEDIA="true" ;;
-      t) FLAG_DOWNLOAD_TOOL=$OPTARG ;;
+      u) POLL_AND_EXIT=true ;;
+      d) DOWNLOAD_MEDIA=true ;;
       h) usage ;;
-      *) exit 1 ;;
+      *) [ -n "$var" ] && eval "FLAG_$var=\$OPTARG" || exit 1 ;;
     esac
   done
   shift $((OPTIND - 1))
